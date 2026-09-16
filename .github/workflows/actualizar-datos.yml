@@ -1,0 +1,57 @@
+name: Actualizar datos y publicar
+
+on:
+  schedule:
+    # 06:00 y 18:00 UTC (~08:00 y ~20:00 hora española en verano).
+    # AEMET solo actualiza esta predicción 2 veces al día, así que con
+    # esto es suficiente.
+    - cron: "0 6 * * *"
+    - cron: "0 18 * * *"
+  workflow_dispatch: {}  # permite lanzarlo a mano desde la pestaña "Actions"
+  push:
+    branches: [main]     # también se actualiza cada vez que subes cambios
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  generar-datos:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependencias
+        run: pip install -r scripts/requirements.txt
+
+      - name: Consultar AEMET y generar site/playas.json
+        env:
+          AEMET_API_KEY: ${{ secrets.AEMET_API_KEY }}
+        run: python scripts/generar_datos.py
+
+      - name: Preparar artefacto de GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  publicar:
+    needs: generar-datos
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publicar en GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
