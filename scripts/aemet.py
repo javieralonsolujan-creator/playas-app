@@ -79,14 +79,30 @@ class AemetClient:
             )
         self.timeout = timeout
 
-    def _get_json(self, url: str, with_api_key: bool) -> Any:
+    def _get_json(self, url: str, with_api_key: bool, intentos: int = 3) -> Any:
         params = {"api_key": self.api_key} if with_api_key else None
-        resp = requests.get(url, params=params, timeout=self.timeout)
-        resp.raise_for_status()
-        # AEMET a veces devuelve JSON con content-type raro; forzamos la
-        # codificación real (ISO-8859-15) en vez de dejar que requests adivine.
-        resp.encoding = "ISO-8859-15"
-        return resp.json()
+
+        for intento in range(1, intentos + 1):
+            try:
+                resp = requests.get(url, params=params, timeout=self.timeout)
+                if resp.status_code == 429:
+                    espera = 5 * intento
+                    if intento < intentos:
+                        time.sleep(espera)
+                        continue
+                    raise AemetError(f"Límite de peticiones (429) agotado en {url}")
+                resp.raise_for_status()
+                # AEMET a veces devuelve JSON con content-type raro; forzamos la
+                # codificación real (ISO-8859-15) en vez de dejar que requests adivine.
+                resp.encoding = "ISO-8859-15"
+                return resp.json()
+            except requests.exceptions.RequestException as exc:
+                if intento < intentos:
+                    time.sleep(2 * intento)
+                    continue
+                raise AemetError(f"Error de red al consultar {url}: {exc}") from exc
+            except ValueError as exc:  # json.JSONDecodeError hereda de ValueError
+                raise AemetError(f"Respuesta no es JSON válido desde {url}: {exc}") from exc
 
     def _call_endpoint(self, path: str) -> Any:
         """Realiza la doble llamada estándar de AEMET OpenData y devuelve el JSON de datos."""
