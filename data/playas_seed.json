@@ -1,0 +1,62 @@
+[
+  {
+    "nombre": "Playa de la Malvarrosa",
+    "municipio": "Valencia",
+    "provincia": "Valencia",
+    "comunidad_autonoma": "Comunidad Valenciana",
+    "latitud": 39.4735,
+    "longitud": -0.3283,
+    "zona_costera_aemet": null,
+    "codigo_aemet": "4625001",
+    "longitud_m": 1200,
+    "activa": true
+  },
+  {
+    "nombre": "Playa de Postiguet",
+    "municipio": "Alicante",
+    "provincia": "Alicante",
+    "comunidad_autonoma": "Comunidad Valenciana",
+    "latitud": 38.3436,
+    "longitud": -0.4816,
+    "zona_costera_aemet": null,
+    "codigo_aemet": "0301408",
+    "longitud_m": 1000,
+    "activa": true
+  },
+  {
+    "nombre": "Playa de Palma",
+    "municipio": "Palma",
+    "provincia": "Illes Balears",
+    "comunidad_autonoma": "Islas Baleares",
+    "latitud": 39.5300,
+    "longitud": 2.6300,
+    "zona_costera_aemet": null,
+    "codigo_aemet": "0704007",
+    "longitud_m": 4500,
+    "activa": true
+  },
+  {
+    "nombre": "Playa de la Concha",
+    "municipio": "San Sebastián",
+    "provincia": "Guipúzcoa",
+    "comunidad_autonoma": "País Vasco",
+    "latitud": 43.3140,
+    "longitud": -1.9860,
+    "zona_costera_aemet": null,
+    "codigo_aemet": "2006904",
+    "longitud_m": 1350,
+    "activa": true
+  },
+  {
+    "nombre": "Playa de la Barceloneta",
+    "municipio": "Barcelona",
+    "provincia": "Barcelona",
+    "comunidad_autonoma": "Cataluña",
+    "latitud": 41.3785,
+    "longitud": 2.1899,
+    "zona_costera_aemet": null,
+    "codigo_aemet": "0801905",
+    "longitud_m": 1100,
+    "activa": true
+  }
+]

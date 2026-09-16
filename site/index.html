@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Playas App — prototipo de mapa</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sea-deep: #0B3350;
+    --sea-mid: #124867;
+    --water: #1B7FA3;
+    --sand: #F5EFE0;
+    --sand-dark: #E7DCC2;
+    --foam: #FBFAF6;
+    --ink: #12242F;
+    --green: #2E8B57;
+    --yellow: #C98A1F;
+    --red: #C1443C;
+    --grey: #8A9AA5;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    font-family: 'Inter', system-ui, sans-serif;
+    color: var(--ink);
+    background: var(--sea-deep);
+    overflow: hidden;
+  }
+
+  #app {
+    position: relative;
+    height: 100vh;
+    width: 100%;
+  }
+
+  header {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    z-index: 500;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 22px;
+    background: linear-gradient(to bottom, rgba(11,51,80,0.92), rgba(11,51,80,0));
+    pointer-events: none;
+  }
+
+  header .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    pointer-events: auto;
+  }
+
+  header .brand h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 22px;
+    color: var(--foam);
+    margin: 0;
+    letter-spacing: 0.2px;
+  }
+
+  header .brand span {
+    font-size: 13px;
+    color: rgba(251,250,246,0.7);
+  }
+
+  .filtro {
+    pointer-events: auto;
+    background: rgba(251,250,246,0.95);
+    border: none;
+    border-radius: 10px;
+    padding: 9px 14px;
+    font-family: 'Inter', sans-serif;
+    font-size: 13.5px;
+    color: var(--sea-deep);
+    font-weight: 500;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+  }
+
+  #map {
+    height: 100%;
+    width: 100%;
+    background: var(--sea-deep);
+  }
+
+  .leyenda {
+    position: absolute;
+    bottom: 18px;
+    left: 18px;
+    z-index: 500;
+    background: rgba(11,51,80,0.85);
+    backdrop-filter: blur(4px);
+    border-radius: 12px;
+    padding: 12px 16px;
+    display: flex;
+    gap: 16px;
+    font-size: 12.5px;
+    color: var(--foam);
+  }
+
+  .leyenda .item { display: flex; align-items: center; gap: 6px; }
+  .leyenda .punto { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+
+  /* Marcadores */
+  .marcador-playa {
+    width: 22px;
+    height: 22px;
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    border: 2px solid rgba(255,255,255,0.9);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+    cursor: pointer;
+    transition: transform 0.15s ease;
+  }
+  .marcador-playa:hover { transform: rotate(-45deg) scale(1.15); }
+  .marcador-playa.verde { background: var(--green); }
+  .marcador-playa.amarilla { background: var(--yellow); }
+  .marcador-playa.roja { background: var(--red); }
+  .marcador-playa.gris { background: var(--grey); }
+
+  /* Panel de ficha */
+  #panel {
+    position: absolute;
+    z-index: 600;
+    background: var(--sand);
+    box-shadow: -6px 0 24px rgba(0,0,0,0.25);
+    transition: transform 0.32s cubic-bezier(.4,0,.2,1);
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Desktop: panel lateral derecho */
+  @media (min-width: 760px) {
+    #panel {
+      top: 0; right: 0; bottom: 0;
+      width: 360px;
+      transform: translateX(100%);
+    }
+    #panel.abierto { transform: translateX(0); }
+  }
+
+  /* Móvil: panel inferior */
+  @media (max-width: 759px) {
+    #panel {
+      left: 0; right: 0; bottom: 0;
+      max-height: 62vh;
+      border-radius: 20px 20px 0 0;
+      transform: translateY(100%);
+    }
+    #panel.abierto { transform: translateY(0); }
+  }
+
+  #panel .cerrar {
+    align-self: flex-end;
+    background: none;
+    border: none;
+    font-size: 22px;
+    color: var(--sea-mid);
+    padding: 14px 16px 0 0;
+    cursor: pointer;
+    line-height: 1;
+  }
+
+  #panel .contenido {
+    padding: 4px 26px 26px;
+    overflow-y: auto;
+  }
+
+  #panel .ubicacion {
+    font-size: 12.5px;
+    color: var(--sea-mid);
+    font-weight: 500;
+    margin: 0 0 2px;
+  }
+
+  #panel h2 {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 27px;
+    margin: 0 0 14px;
+    color: var(--ink);
+    line-height: 1.15;
+  }
+
+  .estado-bandera {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 20px;
+  }
+  .estado-bandera .punto { width: 8px; height: 8px; border-radius: 50%; }
+  .estado-bandera.verde { background: rgba(46,139,87,0.14); color: #1F6B41; }
+  .estado-bandera.verde .punto { background: var(--green); }
+  .estado-bandera.amarilla { background: rgba(201,138,31,0.16); color: #8C6317; }
+  .estado-bandera.amarilla .punto { background: var(--yellow); }
+  .estado-bandera.roja { background: rgba(193,68,60,0.14); color: #9A362F; }
+  .estado-bandera.roja .punto { background: var(--red); }
+  .estado-bandera.desconocida { background: rgba(138,154,165,0.18); color: #4B5B66; }
+  .estado-bandera.desconocida .punto { background: var(--grey); }
+
+  .temp-agua {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 22px;
+  }
+  .temp-agua .valor {
+    font-family: 'Fraunces', serif;
+    font-size: 46px;
+    font-weight: 500;
+    color: var(--water);
+    line-height: 1;
+  }
+  .temp-agua .etiqueta {
+    font-size: 13px;
+    color: var(--sea-mid);
+  }
+
+  .datos-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .dato {
+    background: var(--foam);
+    border-radius: 12px;
+    padding: 12px 14px;
+  }
+  .dato .campo {
+    font-size: 11.5px;
+    color: var(--sea-mid);
+    margin: 0 0 4px;
+  }
+  .dato .valor {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+    margin: 0;
+  }
+
+  .actualizado {
+    font-size: 12px;
+    color: var(--sea-mid);
+    border-top: 1px solid var(--sand-dark);
+    padding-top: 14px;
+    margin-top: 4px;
+  }
+
+  .aviso-mock {
+    font-size: 11.5px;
+    color: var(--sea-mid);
+    background: var(--sand-dark);
+    border-radius: 10px;
+    padding: 9px 12px;
+    margin-top: 16px;
+    line-height: 1.4;
+  }
+
+  .leaflet-popup-content-wrapper, .leaflet-popup-tip { display: none; }
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-thumb { background: var(--sand-dark); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header>
+    <div class="brand">
+      <h1>Playas App</h1>
+      <span>Estado de las playas de España en tiempo real</span>
+    </div>
+    <select class="filtro" id="filtroCCAA">
+      <option value="todas">Todas las comunidades</option>
+    </select>
+  </header>
+
+  <div id="map"></div>
+
+  <div class="leyenda">
+    <div class="item"><span class="punto" style="background:#2E8B57"></span> Bandera verde</div>
+    <div class="item"><span class="punto" style="background:#C98A1F"></span> Amarilla</div>
+    <div class="item"><span class="punto" style="background:#C1443C"></span> Roja</div>
+  </div>
+
+  <div id="panel">
+    <button class="cerrar" id="cerrarPanel" aria-label="Cerrar">&times;</button>
+    <div class="contenido" id="contenidoPanel"></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+
+  // ---------------------------------------------------------------
+  // Datos de EJEMPLO/RESPALDO — se usan solo si no se puede cargar
+  // site/playas.json (por ejemplo, al abrir este archivo con doble
+  // clic desde el disco, donde el navegador bloquea fetch() a
+  // ficheros locales). En condiciones normales (servido por GitHub
+  // Pages o "python -m http.server"), se sobrescriben con datos reales.
+  // ---------------------------------------------------------------
+  const PLAYAS_EJEMPLO = [
+    {
+      id: 1,
+      nombre: "Playa de la Malvarrosa",
+      municipio: "Valencia",
+      comunidad_autonoma: "Comunidad Valenciana",
+      latitud: 39.4735,
+      longitud: -0.3283,
+      ultimo_estado: {
+        bandera: "verde",
+        estado_cielo: "Mañana: Despejado. Tarde: Nuboso.",
+        viento_categoria: "Flojo",
+        oleaje_categoria: "Débil",
+        temperatura_aire: 27,
+        temperatura_agua: 23,
+        uv_max: 8,
+        timestamp: "2026-09-15T10:00:00"
+      }
+    },
+    {
+      id: 2,
+      nombre: "Playa de Postiguet",
+      municipio: "Alicante",
+      comunidad_autonoma: "Comunidad Valenciana",
+      latitud: 38.3436,
+      longitud: -0.4816,
+      ultimo_estado: {
+        bandera: "verde",
+        estado_cielo: "Despejado",
+        viento_categoria: "Flojo",
+        oleaje_categoria: "Débil",
+        temperatura_aire: 29,
+        temperatura_agua: 24,
+        uv_max: 9,
+        timestamp: "2026-09-15T10:00:00"
+      }
+    },
+    {
+      id: 3,
+      nombre: "Playa de Palma",
+      municipio: "Palma",
+      comunidad_autonoma: "Islas Baleares",
+      latitud: 39.5300,
+      longitud: 2.6300,
+      ultimo_estado: {
+        bandera: "amarilla",
+        estado_cielo: "Nuboso",
+        viento_categoria: "Moderado",
+        oleaje_categoria: "Moderado",
+        temperatura_aire: 26,
+        temperatura_agua: 23,
+        uv_max: 6,
+        timestamp: "2026-09-15T10:00:00"
+      }
+    },
+    {
+      id: 4,
+      nombre: "Playa de la Concha",
+      municipio: "San Sebastián",
+      comunidad_autonoma: "País Vasco",
+      latitud: 43.3140,
+      longitud: -1.9860,
+      ultimo_estado: {
+        bandera: "roja",
+        estado_cielo: "Chubascos",
+        viento_categoria: "Fuerte",
+        oleaje_categoria: "Fuerte",
+        temperatura_aire: 19,
+        temperatura_agua: 18,
+        uv_max: 3,
+        timestamp: "2026-09-15T10:00:00"
+      }
+    },
+    {
+      id: 5,
+      nombre: "Playa de la Barceloneta",
+      municipio: "Barcelona",
+      comunidad_autonoma: "Cataluña",
+      latitud: 41.3785,
+      longitud: 2.1899,
+      ultimo_estado: {
+        bandera: "verde",
+        estado_cielo: "Despejado",
+        viento_categoria: "Flojo",
+        oleaje_categoria: "Débil",
+        temperatura_aire: 25,
+        temperatura_agua: 22,
+        uv_max: 7,
+        timestamp: "2026-09-15T10:00:00"
+      }
+    }
+  ];
+
+  // ---------------------------------------------------------------
+  // Mapa
+  // ---------------------------------------------------------------
+  // ---------------------------------------------------------------
+  // Pega aquí tu API key gratuita de CARTO (la consigues en
+  // https://carto.com/basemaps/apikey/, no requiere cuenta).
+  // Desde finales de agosto de 2026, CARTO exige esta key en sus
+  // tiles gratuitos; sin ella, el mapa sale marcado con "API KEY REQUIRED".
+  // ---------------------------------------------------------------
+  const CARTO_API_KEY = "cb1_3my1_1_7b4852e11e30d91452aef23f";
+
+  const map = L.map('map', { zoomControl: false, attributionControl: true })
+    .setView([40.2, -1.5], 6);
+
+  L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+  L.tileLayer(`https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=${CARTO_API_KEY}`, {
+    maxZoom: 20,
+    subdomains: 'abcd',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+  }).addTo(map);
+
+  const bounds = [];
+  const marcadores = {};
+
+  function iconoPara(bandera) {
+    const clase = { verde: 'verde', amarilla: 'amarilla', roja: 'roja' }[bandera] || 'gris';
+    return L.divIcon({
+      className: '',
+      html: `<div class="marcador-playa ${clase}"></div>`,
+      iconSize: [22, 22],
+      iconAnchor: [11, 20]
+    });
+  }
+
+  function renderizarPlayas(playas) {
+    playas.forEach(playa => {
+      const bandera = playa.ultimo_estado ? playa.ultimo_estado.bandera : null;
+      const marker = L.marker([playa.latitud, playa.longitud], {
+        icon: iconoPara(bandera)
+      }).addTo(map);
+
+      marker.on('click', () => abrirFicha(playa));
+      marcadores[playa.id] = marker;
+      bounds.push([playa.latitud, playa.longitud]);
+    });
+
+    map.fitBounds(bounds, { padding: [60, 60] });
+
+    // Filtro de comunidad autónoma (poblado dinámicamente)
+    const select = document.getElementById('filtroCCAA');
+    select.innerHTML = '<option value="todas">Todas las comunidades</option>';
+    [...new Set(playas.map(p => p.comunidad_autonoma))].sort().forEach(ccaa => {
+      const opt = document.createElement('option');
+      opt.value = ccaa;
+      opt.textContent = ccaa;
+      select.appendChild(opt);
+    });
+
+    select.addEventListener('change', () => {
+      const valor = select.value;
+      playas.forEach(playa => {
+        const visible = valor === 'todas' || playa.comunidad_autonoma === valor;
+        const el = marcadores[playa.id].getElement();
+        if (el) el.style.display = visible ? '' : 'none';
+      });
+    });
+  }
+
+  // Intenta cargar datos reales; si falla (ej. abierto con doble clic
+  // desde el disco), usa los datos de ejemplo como respaldo.
+  fetch('playas.json')
+    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(playas => renderizarPlayas(playas))
+    .catch(err => {
+      console.warn('No se pudo cargar playas.json, usando datos de ejemplo:', err);
+      renderizarPlayas(PLAYAS_EJEMPLO);
+    });
+
+  // ---------------------------------------------------------------
+  // Panel de ficha
+  // ---------------------------------------------------------------
+  const panel = document.getElementById('panel');
+  const contenido = document.getElementById('contenidoPanel');
+
+  const etiquetaBandera = { verde: 'Apta para el baño', amarilla: 'Precaución', roja: 'Baño no recomendado' };
+
+  function formatoHora(iso) {
+    const d = new Date(iso);
+    return d.toLocaleString('es-ES', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+  }
+
+  function abrirFicha(playa) {
+    const e = playa.ultimo_estado || {};
+    const bandera = e.bandera || 'desconocida';
+    contenido.innerHTML = `
+      <p class="ubicacion">${playa.municipio} · ${playa.comunidad_autonoma}</p>
+      <h2>${playa.nombre}</h2>
+      <div class="estado-bandera ${bandera}">
+        <span class="punto"></span> ${etiquetaBandera[bandera] || 'Bandera sin datos todavía'}
+      </div>
+      <div class="temp-agua">
+        <span class="valor">${e.temperatura_agua != null ? e.temperatura_agua + '°' : '—'}</span>
+        <span class="etiqueta">temperatura del agua</span>
+      </div>
+      <div class="datos-grid">
+        <div class="dato"><p class="campo">Aire</p><p class="valor">${e.temperatura_aire != null ? e.temperatura_aire + '°C' : '—'}</p></div>
+        <div class="dato"><p class="campo">Cielo</p><p class="valor">${e.estado_cielo || '—'}</p></div>
+        <div class="dato"><p class="campo">Viento</p><p class="valor">${e.viento_categoria || '—'}</p></div>
+        <div class="dato"><p class="campo">Oleaje</p><p class="valor">${e.oleaje_categoria || '—'}</p></div>
+        <div class="dato"><p class="campo">Índice UV</p><p class="valor">${e.uv_max != null ? e.uv_max : '—'}</p></div>
+      </div>
+      <p class="actualizado">${e.timestamp ? 'Actualizado el ' + formatoHora(e.timestamp) : 'Sin actualizar todavía'}</p>
+    `;
+    panel.classList.add('abierto');
+  }
+
+  document.getElementById('cerrarPanel').addEventListener('click', () => {
+    panel.classList.remove('abierto');
+  });
+
+</script>
+</body>
+</html>

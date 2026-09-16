@@ -1,0 +1,102 @@
+[
+  {
+    "id": 1,
+    "nombre": "Playa de la Malvarrosa",
+    "municipio": "Valencia",
+    "comunidad_autonoma": "Comunidad Valenciana",
+    "provincia": "Valencia",
+    "latitud": 39.4735,
+    "longitud": -0.3283,
+    "ultimo_estado": {
+      "estado_cielo": "Pendiente de la primera actualización automática",
+      "viento_categoria": "—",
+      "oleaje_categoria": "—",
+      "temperatura_aire": null,
+      "temperatura_agua": null,
+      "uv_max": null,
+      "bandera": null,
+      "fuente_meteo": "AEMET",
+      "timestamp": "2026-09-16T08:35:56.919455+00:00"
+    }
+  },
+  {
+    "id": 2,
+    "nombre": "Playa de Postiguet",
+    "municipio": "Alicante",
+    "comunidad_autonoma": "Comunidad Valenciana",
+    "provincia": "Alicante",
+    "latitud": 38.3436,
+    "longitud": -0.4816,
+    "ultimo_estado": {
+      "estado_cielo": "Pendiente de la primera actualización automática",
+      "viento_categoria": "—",
+      "oleaje_categoria": "—",
+      "temperatura_aire": null,
+      "temperatura_agua": null,
+      "uv_max": null,
+      "bandera": null,
+      "fuente_meteo": "AEMET",
+      "timestamp": "2026-09-16T08:35:57.919717+00:00"
+    }
+  },
+  {
+    "id": 3,
+    "nombre": "Playa de Palma",
+    "municipio": "Palma",
+    "comunidad_autonoma": "Islas Baleares",
+    "provincia": "Illes Balears",
+    "latitud": 39.53,
+    "longitud": 2.63,
+    "ultimo_estado": {
+      "estado_cielo": "Pendiente de la primera actualización automática",
+      "viento_categoria": "—",
+      "oleaje_categoria": "—",
+      "temperatura_aire": null,
+      "temperatura_agua": null,
+      "uv_max": null,
+      "bandera": null,
+      "fuente_meteo": "AEMET",
+      "timestamp": "2026-09-16T08:35:58.919987+00:00"
+    }
+  },
+  {
+    "id": 4,
+    "nombre": "Playa de la Concha",
+    "municipio": "San Sebastián",
+    "comunidad_autonoma": "País Vasco",
+    "provincia": "Guipúzcoa",
+    "latitud": 43.314,
+    "longitud": -1.986,
+    "ultimo_estado": {
+      "estado_cielo": "Pendiente de la primera actualización automática",
+      "viento_categoria": "—",
+      "oleaje_categoria": "—",
+      "temperatura_aire": null,
+      "temperatura_agua": null,
+      "uv_max": null,
+      "bandera": null,
+      "fuente_meteo": "AEMET",
+      "timestamp": "2026-09-16T08:35:59.920247+00:00"
+    }
+  },
+  {
+    "id": 5,
+    "nombre": "Playa de la Barceloneta",
+    "municipio": "Barcelona",
+    "comunidad_autonoma": "Cataluña",
+    "provincia": "Barcelona",
+    "latitud": 41.3785,
+    "longitud": 2.1899,
+    "ultimo_estado": {
+      "estado_cielo": "Pendiente de la primera actualización automática",
+      "viento_categoria": "—",
+      "oleaje_categoria": "—",
+      "temperatura_aire": null,
+      "temperatura_agua": null,
+      "uv_max": null,
+      "bandera": null,
+      "fuente_meteo": "AEMET",
+      "timestamp": "2026-09-16T08:36:00.920534+00:00"
+    }
+  }
+]
