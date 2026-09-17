@@ -125,6 +125,7 @@
   .marcador-playa.amarilla { background: var(--yellow); }
   .marcador-playa.roja { background: var(--red); }
   .marcador-playa.gris { background: var(--grey); }
+  .marcador-playa.estimada { border-style: dashed; border-width: 2.5px; opacity: 0.85; }
 
   /* Panel de ficha */
   #panel {
@@ -269,6 +270,10 @@
     line-height: 1.4;
   }
 
+  .estado-bandera.estimada {
+    border: 1.5px dashed currentColor;
+  }
+
   .leaflet-popup-content-wrapper, .leaflet-popup-tip { display: none; }
 
   ::-webkit-scrollbar { width: 6px; }
@@ -291,9 +296,10 @@
   <div id="map"></div>
 
   <div class="leyenda">
-    <div class="item"><span class="punto" style="background:#2E8B57"></span> Bandera verde</div>
+    <div class="item"><span class="punto" style="background:#2E8B57"></span> Verde</div>
     <div class="item"><span class="punto" style="background:#C98A1F"></span> Amarilla</div>
     <div class="item"><span class="punto" style="background:#C1443C"></span> Roja</div>
+    <div class="item" style="opacity:0.75">┄ discontinuo = estimación, no oficial</div>
   </div>
 
   <div id="panel">
@@ -393,7 +399,9 @@
       latitud: 41.3785,
       longitud: 2.1899,
       ultimo_estado: {
-        bandera: "verde",
+        bandera: null,
+        bandera_estimada: "verde",
+        bandera_estimada_motivo: "Oleaje y viento en calma previstos",
         estado_cielo: "Despejado",
         viento_categoria: "Flojo",
         oleaje_categoria: "Débil",
@@ -430,11 +438,12 @@
   const bounds = [];
   const marcadores = {};
 
-  function iconoPara(bandera) {
+  function iconoPara(bandera, esEstimada) {
     const clase = { verde: 'verde', amarilla: 'amarilla', roja: 'roja' }[bandera] || 'gris';
+    const extra = esEstimada ? ' estimada' : '';
     return L.divIcon({
       className: '',
-      html: `<div class="marcador-playa ${clase}"></div>`,
+      html: `<div class="marcador-playa ${clase}${extra}"></div>`,
       iconSize: [22, 22],
       iconAnchor: [11, 20]
     });
@@ -442,9 +451,11 @@
 
   function renderizarPlayas(playas) {
     playas.forEach(playa => {
-      const bandera = playa.ultimo_estado ? playa.ultimo_estado.bandera : null;
+      const e = playa.ultimo_estado;
+      const bandera = e ? (e.bandera || e.bandera_estimada) : null;
+      const esEstimada = !!(e && !e.bandera && e.bandera_estimada);
       const marker = L.marker([playa.latitud, playa.longitud], {
-        icon: iconoPara(bandera)
+        icon: iconoPara(bandera, esEstimada)
       }).addTo(map);
 
       marker.on('click', () => abrirFicha(playa));
@@ -499,12 +510,28 @@
 
   function abrirFicha(playa) {
     const e = playa.ultimo_estado || {};
-    const bandera = e.bandera || 'desconocida';
+    const esOficial = !!e.bandera;
+    const bandera = e.bandera || e.bandera_estimada || 'desconocida';
+    const claseBandera = esOficial ? bandera : `${bandera} estimada`;
+
+    let etiqueta;
+    if (esOficial) {
+      etiqueta = etiquetaBandera[bandera] || 'Bandera sin datos todavía';
+    } else if (e.bandera_estimada) {
+      etiqueta = `Estimación: ${etiquetaBandera[bandera] || bandera}`;
+    } else {
+      etiqueta = 'Bandera sin datos todavía';
+    }
+
+    const avisoEstimacion = (!esOficial && e.bandera_estimada) ? `
+      <p class="aviso-mock">⚠️ Esto NO es la bandera oficial de los socorristas — es una estimación automática basada solo en el tiempo previsto (${e.bandera_estimada_motivo || 'oleaje y viento'}). No tiene en cuenta medusas, corrientes locales u otros factores. Sigue siempre las indicaciones del personal de playa.</p>
+    ` : '';
+
     contenido.innerHTML = `
       <p class="ubicacion">${playa.municipio} · ${playa.comunidad_autonoma}</p>
       <h2>${playa.nombre}</h2>
-      <div class="estado-bandera ${bandera}">
-        <span class="punto"></span> ${etiquetaBandera[bandera] || 'Bandera sin datos todavía'}
+      <div class="estado-bandera ${claseBandera}">
+        <span class="punto"></span> ${etiqueta}
       </div>
       <div class="temp-agua">
         <span class="valor">${e.temperatura_agua != null ? e.temperatura_agua + '°' : '—'}</span>
@@ -518,6 +545,7 @@
         <div class="dato"><p class="campo">Índice UV</p><p class="valor">${e.uv_max != null ? e.uv_max : '—'}</p></div>
       </div>
       <p class="actualizado">${e.timestamp ? 'Actualizado el ' + formatoHora(e.timestamp) : 'Sin actualizar todavía'}</p>
+      ${avisoEstimacion}
     `;
     panel.classList.add('abierto');
   }
