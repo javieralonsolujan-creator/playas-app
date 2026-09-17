@@ -19,15 +19,72 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(__file__))
 from aemet import AemetClient, AemetError  # noqa: E402
+from scraper_banderas_murcia import obtener_banderas_murcia_automatico  # noqa: E402
 
 RAIZ = os.path.join(os.path.dirname(__file__), "..")
 SEED_PATH = os.path.join(RAIZ, "data", "playas_seed.json")
+BANDERAS_PATH = os.path.join(RAIZ, "data", "banderas_manual.json")
 SALIDA_PATH = os.path.join(RAIZ, "site", "playas.json")
+
+
+def cargar_banderas_del_dia() -> dict:
+    """
+    Lee data/banderas_manual.json y devuelve {codigo_aemet: color} SOLO si
+    el fichero fue actualizado hoy (fecha de Madrid). Si está desactualizado
+    (nadie lo tocó hoy), se ignora por completo para no mostrar una bandera
+    de un día anterior como si fuera la de hoy.
+    """
+    if not os.path.exists(BANDERAS_PATH):
+        return {}
+
+    with open(BANDERAS_PATH, encoding="utf-8") as f:
+        datos = json.load(f)
+
+    hoy = datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d")
+    # Aproximación simple a "hoy en España" (evita depender de zoneinfo/tz data)
+    hoy_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    if datos.get("actualizado") not in (hoy, hoy_utc):
+        print(
+            f"  (banderas_manual.json desactualizado: pone '{datos.get('actualizado')}', "
+            f"hoy es {hoy_utc}. Se ignoran las banderas hasta que se actualice.)"
+        )
+        return {}
+
+    print(f"  Usando banderas manuales actualizadas a fecha {datos.get('actualizado')}.")
+    return datos.get("banderas", {})
+
+
+def obtener_banderas(playas_config: list) -> tuple[dict, str]:
+    """
+    Intenta primero el scraping automático de Murcia; si falla o no
+    devuelve nada de confianza, cae al fichero manual (solo si está
+    actualizado a hoy). Devuelve ({codigo_aemet: color}, etiqueta_fuente).
+    """
+    playas_murcia = [
+        p for p in playas_config if p.get("comunidad_autonoma") == "Región de Murcia"
+    ]
+
+    if playas_murcia:
+        print("Probando scraping automático de banderas (Murcia)...")
+        try:
+            automatico = obtener_banderas_murcia_automatico(playas_murcia)
+        except Exception as exc:  # nunca debe tumbar el job
+            print(f"  (scraping automático falló con excepción inesperada: {exc})")
+            automatico = None
+
+        if automatico:
+            return automatico, "Automático (scraping Plan Copla)"
+        print("  Scraping automático no disponible, se usará el fichero manual si está al día.")
+
+    return cargar_banderas_del_dia(), "Manual (Plan Copla)"
 
 
 def main() -> None:
     with open(SEED_PATH, encoding="utf-8") as f:
         playas_config = json.load(f)
+
+    banderas_hoy, fuente_bandera_label = obtener_banderas(playas_config)
 
     client = AemetClient()  # lee AEMET_API_KEY del entorno
     resultado = []
@@ -46,8 +103,12 @@ def main() -> None:
         }
 
         codigo = playa.get("codigo_aemet")
+        bandera_hoy = banderas_hoy.get(codigo) if codigo else None
+
         if not codigo:
             print(f"  (sin codigo_aemet, se omite AEMET) {playa['nombre']}")
+            if bandera_hoy:
+                entrada["ultimo_estado"] = {"bandera": bandera_hoy, "fuente_bandera": fuente_bandera_label}
             resultado.append(entrada)
             continue
 
@@ -61,17 +122,23 @@ def main() -> None:
                 "temperatura_aire": prediccion.temperatura_aire,
                 "temperatura_agua": prediccion.temperatura_agua,
                 "uv_max": prediccion.uv_max,
-                "bandera": None,  # pendiente: sin fuente automática todavía
+                "bandera": bandera_hoy,  # None si no tenemos dato de hoy
                 "fuente_meteo": "AEMET",
+                "fuente_bandera": fuente_bandera_label if bandera_hoy else None,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
             print("  OK")
         except AemetError as exc:
             print(f"  ERROR: {exc}")
             errores += 1
+            if bandera_hoy:
+                # Aunque AEMET falle, no perdemos el dato de bandera si lo tenemos.
+                entrada["ultimo_estado"] = {"bandera": bandera_hoy, "fuente_bandera": fuente_bandera_label}
         except Exception as exc:  # red de seguridad: nunca tumbar el job entero
             print(f"  ERROR inesperado: {exc}")
             errores += 1
+            if bandera_hoy:
+                entrada["ultimo_estado"] = {"bandera": bandera_hoy, "fuente_bandera": fuente_bandera_label}
 
         resultado.append(entrada)
         time.sleep(2)  # cortesía entre llamadas (AEMET aplica límite de peticiones)
