@@ -41,6 +41,7 @@ https://www.aemet.es/documentos/es/eltiempo/prediccion/playas/Playas_codigos.csv
 from __future__ import annotations
 
 import os
+import time
 from dataclasses import dataclass
 from typing import Any, Optional
 

@@ -69,9 +69,12 @@ def main() -> None:
         except AemetError as exc:
             print(f"  ERROR: {exc}")
             errores += 1
+        except Exception as exc:  # red de seguridad: nunca tumbar el job entero
+            print(f"  ERROR inesperado: {exc}")
+            errores += 1
 
         resultado.append(entrada)
-        time.sleep(1)  # cortesía entre llamadas
+        time.sleep(2)  # cortesía entre llamadas (AEMET aplica límite de peticiones)
 
     os.makedirs(os.path.dirname(SALIDA_PATH), exist_ok=True)
     with open(SALIDA_PATH, "w", encoding="utf-8") as f:
