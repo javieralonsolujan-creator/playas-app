@@ -80,6 +80,32 @@ def obtener_banderas(playas_config: list) -> tuple[dict, str]:
     return cargar_banderas_del_dia(), "Manual (Plan Copla)"
 
 
+def estimar_bandera(prediccion) -> tuple:
+    """
+    Estimación NO OFICIAL del riesgo de baño a partir de las categorías de
+    AEMET (oleaje, viento, estado del cielo). No sustituye a la bandera
+    real: no puede saber si hay medusas, corrientes locales, mala calidad
+    del agua, etc. — cosas que solo un socorrista in situ puede valorar.
+
+    Devuelve (color_estimado, motivo) o (None, None) si no hay datos
+    suficientes para estimar nada.
+    """
+    texto_oleaje = (prediccion.oleaje_categoria or "").lower()
+    texto_viento = (prediccion.viento_categoria or "").lower()
+    texto_cielo = (prediccion.estado_cielo or "").lower()
+
+    if not texto_oleaje and not texto_viento:
+        return None, None
+
+    if "tormenta" in texto_cielo:
+        return "roja", "Tormenta prevista"
+    if "fuerte" in texto_oleaje:
+        return "roja", "Oleaje fuerte previsto"
+    if "moderado" in texto_oleaje or "fuerte" in texto_viento:
+        return "amarilla", "Oleaje o viento moderado/fuerte previsto"
+    return "verde", "Oleaje y viento en calma previstos"
+
+
 def main() -> None:
     with open(SEED_PATH, encoding="utf-8") as f:
         playas_config = json.load(f)
@@ -115,6 +141,7 @@ def main() -> None:
         print(f"Consultando AEMET para: {playa['nombre']} ({codigo})...")
         try:
             prediccion = client.get_prediccion_playa_hoy(codigo)
+            bandera_estimada, motivo_estimada = estimar_bandera(prediccion)
             entrada["ultimo_estado"] = {
                 "estado_cielo": prediccion.estado_cielo,
                 "viento_categoria": prediccion.viento_categoria,
@@ -122,7 +149,9 @@ def main() -> None:
                 "temperatura_aire": prediccion.temperatura_aire,
                 "temperatura_agua": prediccion.temperatura_agua,
                 "uv_max": prediccion.uv_max,
-                "bandera": bandera_hoy,  # None si no tenemos dato de hoy
+                "bandera": bandera_hoy,  # None si no tenemos dato OFICIAL de hoy
+                "bandera_estimada": bandera_estimada,  # NO oficial, ver docs/fuentes-datos.md
+                "bandera_estimada_motivo": motivo_estimada,
                 "fuente_meteo": "AEMET",
                 "fuente_bandera": fuente_bandera_label if bandera_hoy else None,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
