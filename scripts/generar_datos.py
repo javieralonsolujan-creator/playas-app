@@ -20,6 +20,7 @@ from datetime import datetime, timezone
 sys.path.insert(0, os.path.dirname(__file__))
 from aemet import AemetClient, AemetError  # noqa: E402
 from scraper_banderas_murcia import obtener_banderas_murcia_automatico  # noqa: E402
+from scraper_banderas_cataluna import obtener_banderas_cataluna_automatico  # noqa: E402
 from open_meteo import obtener_oleaje  # noqa: E402
 
 RAIZ = os.path.join(os.path.dirname(__file__), "..")
@@ -56,29 +57,54 @@ def cargar_banderas_del_dia() -> dict:
     return datos.get("banderas", {})
 
 
-def obtener_banderas(playas_config: list) -> tuple[dict, str]:
+def obtener_banderas(playas_config: list) -> dict:
     """
-    Intenta primero el scraping automático de Murcia; si falla o no
-    devuelve nada de confianza, cae al fichero manual (solo si está
-    actualizado a hoy). Devuelve ({codigo_aemet: color}, etiqueta_fuente).
-    """
-    playas_murcia = [
-        p for p in playas_config if p.get("comunidad_autonoma") == "Región de Murcia"
-    ]
+    Combina, por playa, la mejor fuente de bandera disponible:
+    1. Scraping automático específico de su comunidad (Murcia, Cataluña...).
+    2. Si no hay, el fichero manual (solo si está actualizado a hoy).
+    3. Si tampoco, esa playa se queda sin bandera oficial (y usará la
+       estimación no oficial más adelante).
 
+    Devuelve {codigo_aemet: (color, etiqueta_fuente)}.
+    """
+    resultado: dict = {}
+
+    # --- Murcia: scraping del Plan Copla ---
+    playas_murcia = [p for p in playas_config if p.get("comunidad_autonoma") == "Región de Murcia"]
     if playas_murcia:
         print("Probando scraping automático de banderas (Murcia)...")
         try:
             automatico = obtener_banderas_murcia_automatico(playas_murcia)
-        except Exception as exc:  # nunca debe tumbar el job
-            print(f"  (scraping automático falló con excepción inesperada: {exc})")
+        except Exception as exc:
+            print(f"  (scraping automático de Murcia falló con excepción inesperada: {exc})")
             automatico = None
-
         if automatico:
-            return automatico, "Automático (scraping Plan Copla)"
-        print("  Scraping automático no disponible, se usará el fichero manual si está al día.")
+            for codigo, color in automatico.items():
+                resultado[codigo] = (color, "Automático (scraping Plan Copla)")
+        else:
+            print("  No disponible para Murcia.")
 
-    return cargar_banderas_del_dia(), "Manual (Plan Copla)"
+    # --- Cataluña: scraping de Maritimum / Àrea Metropolitana de Barcelona ---
+    playas_cataluna = [p for p in playas_config if p.get("comunidad_autonoma") == "Cataluña"]
+    if playas_cataluna:
+        print("Probando scraping automático de banderas (Cataluña)...")
+        try:
+            automatico_cat = obtener_banderas_cataluna_automatico(playas_cataluna)
+        except Exception as exc:
+            print(f"  (scraping automático de Cataluña falló con excepción inesperada: {exc})")
+            automatico_cat = None
+        if automatico_cat:
+            for codigo, color in automatico_cat.items():
+                resultado[codigo] = (color, "Automático (Maritimum / AMB)")
+        else:
+            print("  No disponible para Cataluña.")
+
+    # --- Manual: solo rellena playas que ningún scraping haya cubierto ---
+    manual = cargar_banderas_del_dia()
+    for codigo, color in manual.items():
+        resultado.setdefault(codigo, (color, "Manual"))
+
+    return resultado
 
 
 def estimar_bandera(prediccion) -> tuple:
@@ -111,7 +137,7 @@ def main() -> None:
     with open(SEED_PATH, encoding="utf-8") as f:
         playas_config = json.load(f)
 
-    banderas_hoy, fuente_bandera_label = obtener_banderas(playas_config)
+    banderas_hoy = obtener_banderas(playas_config)
 
     client = AemetClient()  # lee AEMET_API_KEY del entorno
     resultado = []
@@ -130,7 +156,7 @@ def main() -> None:
         }
 
         codigo = playa.get("codigo_aemet")
-        bandera_hoy = banderas_hoy.get(codigo) if codigo else None
+        bandera_hoy, fuente_bandera_label = banderas_hoy.get(codigo, (None, None))
         estado: dict = {}
 
         # --- Fuente 1: AEMET (tiempo + categorías de viento/oleaje) ---
