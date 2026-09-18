@@ -541,7 +541,9 @@
         <div class="dato"><p class="campo">Aire</p><p class="valor">${e.temperatura_aire != null ? e.temperatura_aire + '°C' : '—'}</p></div>
         <div class="dato"><p class="campo">Cielo</p><p class="valor">${e.estado_cielo || '—'}</p></div>
         <div class="dato"><p class="campo">Viento</p><p class="valor">${e.viento_categoria || '—'}</p></div>
-        <div class="dato"><p class="campo">Oleaje</p><p class="valor">${e.oleaje_categoria || '—'}</p></div>
+        <div class="dato"><p class="campo">Altura de ola</p><p class="valor">${e.altura_ola != null ? e.altura_ola + ' m' : (e.oleaje_categoria || '—')}</p></div>
+        <div class="dato"><p class="campo">Periodo de ola</p><p class="valor">${e.periodo_ola != null ? e.periodo_ola + ' s' : '—'}</p></div>
+        <div class="dato"><p class="campo">Dirección oleaje</p><p class="valor">${e.direccion_ola || '—'}</p></div>
         <div class="dato"><p class="campo">Índice UV</p><p class="valor">${e.uv_max != null ? e.uv_max : '—'}</p></div>
       </div>
       <p class="actualizado">${e.timestamp ? 'Actualizado el ' + formatoHora(e.timestamp) : 'Sin actualizar todavía'}</p>
